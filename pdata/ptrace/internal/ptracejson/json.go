@@ -178,8 +178,8 @@ func writeSpan(st *jsoniter.Stream, span *otlptrace.Span) error {
 
 	st.WriteObjectField("attributes")
 	st.WriteArrayStart()
-	for i, value := range span.GetAttributes() {
-		if err := writeKeyValue(st, value); err != nil {
+	for i, kv := range span.GetAttributes() {
+		if err := writeKeyValue(st, kv); err != nil {
 			return err
 		}
 		if i < len(span.GetAttributes())-1 {
@@ -228,9 +228,7 @@ func writeSpan(st *jsoniter.Stream, span *otlptrace.Span) error {
 	st.WriteMore()
 
 	st.WriteObjectField("status")
-	if err := writeStatus(st, span.GetStatus()); err != nil {
-		return err
-	}
+	writeStatus(st, span.GetStatus())
 	return nil
 }
 
@@ -358,15 +356,58 @@ func writeKeyValueList(st *jsoniter.Stream, kvlistValue *otlpcommon.KeyValueList
 }
 
 func writeSpanEvent(st *jsoniter.Stream, event *otlptrace.Span_Event) error {
-	panic("implement me")
+	if event == nil {
+		st.WriteNil()
+		return nil
+	}
+
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("timeUnixNano")
+	st.WriteUint64(event.GetTimeUnixNano())
+	st.WriteMore()
+
+	st.WriteObjectField("name")
+	st.WriteString(event.GetName())
+	st.WriteMore()
+
+	st.WriteObjectField("attributes")
+	st.WriteArrayStart()
+	for i, kv := range event.GetAttributes() {
+		if err := writeKeyValue(st, kv); err != nil {
+			return err
+		}
+		if i < len(event.GetAttributes())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedAttributesCount")
+	st.WriteUint32(event.GetDroppedAttributesCount())
+	return nil
 }
 
-func writeStatus(st *jsoniter.Stream, status otlptrace.Status) error {
-	panic("implement me")
+func writeStatus(st *jsoniter.Stream, status otlptrace.Status) {
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("message")
+	st.WriteString(status.GetMessage())
+	st.WriteMore()
+
+	st.WriteObjectField("code")
+	st.WriteInt32(int32(status.GetCode()))
+	return
 }
 
 func writeSpanLink(st *jsoniter.Stream, link *otlptrace.Span_Link) error {
-	panic("implement me")
+	if link == nil {
+
+		return nil
+	}
 }
 
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
