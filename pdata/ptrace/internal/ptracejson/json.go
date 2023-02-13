@@ -17,6 +17,7 @@ package ptracejson // import "go.opentelemetry.io/collector/pdata/ptrace/interna
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -40,7 +41,7 @@ var JSONMarshaler = &jsonpb.Marshaler{
 
 func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
 	if traceData == nil {
-		return nil, nil
+		return nil, errors.New("MarshalTraceData called with nil")
 	}
 
 	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
@@ -65,7 +66,7 @@ func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
 
 func MarshalExportTraceServiceRequest(request *otlpcollectortrace.ExportTraceServiceRequest) ([]byte, error) {
 	if request == nil {
-		return nil, nil
+		return nil, errors.New("MarshalExportTraceServiceRequest called with nil")
 	}
 
 	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
@@ -88,8 +89,31 @@ func MarshalExportTraceServiceRequest(request *otlpcollectortrace.ExportTraceSer
 	return st.Buffer(), nil
 }
 
-func MarshalExportTraceServiceResponse(request *otlpcollectortrace.ExportTraceServiceResponse) ([]byte, error) {
-	panic("implement me")
+func MarshalExportTraceServiceResponse(response *otlpcollectortrace.ExportTraceServiceResponse) ([]byte, error) {
+	if response == nil {
+		return nil, errors.New("MarshalExportTraceServiceResponse called with nil")
+	}
+
+	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
+	defer jsoniter.ConfigCompatibleWithStandardLibrary.ReturnStream(st)
+
+	st.WriteObjectStart()
+	st.WriteObjectField("partialSuccess")
+	writePartialSuccess(st, response.GetPartialSuccess())
+	st.WriteObjectEnd()
+	return nil, nil
+}
+
+func writePartialSuccess(st *jsoniter.Stream, partialSuccess otlpcollectortrace.ExportTracePartialSuccess) {
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("rejectedSpans")
+	st.WriteInt64(partialSuccess.GetRejectedSpans())
+	st.WriteMore()
+
+	st.WriteObjectField("errorMessage")
+	st.WriteString(partialSuccess.GetErrorMessage())
 }
 
 func writeResourceSpans(st *jsoniter.Stream, resourceSpans *otlptrace.ResourceSpans) error {
