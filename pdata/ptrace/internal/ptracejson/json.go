@@ -39,10 +39,14 @@ var JSONMarshaler = &jsonpb.Marshaler{
 }
 
 func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
+	if traceData == nil {
+		return nil, nil
+	}
+
 	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
 	defer jsoniter.ConfigCompatibleWithStandardLibrary.ReturnStream(st)
-	st.WriteObjectStart()
 
+	st.WriteObjectStart()
 	st.WriteObjectField("resourceSpans")
 	st.WriteArrayStart()
 	for i, spans := range traceData.GetResourceSpans() {
@@ -54,13 +58,34 @@ func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
 		}
 	}
 	st.WriteArrayEnd()
-
 	st.WriteObjectEnd()
+
 	return st.Buffer(), nil
 }
 
 func MarshalExportTraceServiceRequest(request *otlpcollectortrace.ExportTraceServiceRequest) ([]byte, error) {
-	panic("implement me")
+	if request == nil {
+		return nil, nil
+	}
+
+	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
+	defer jsoniter.ConfigCompatibleWithStandardLibrary.ReturnStream(st)
+
+	st.WriteObjectStart()
+	st.WriteObjectField("resourceSpans")
+	st.WriteArrayStart()
+	for i, spans := range request.GetResourceSpans() {
+		if err := writeResourceSpans(st, spans); err != nil {
+			return nil, err
+		}
+		if i < len(request.GetResourceSpans())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteObjectEnd()
+
+	return st.Buffer(), nil
 }
 
 func MarshalExportTraceServiceResponse(request *otlpcollectortrace.ExportTraceServiceResponse) ([]byte, error) {
@@ -405,9 +430,41 @@ func writeStatus(st *jsoniter.Stream, status otlptrace.Status) {
 
 func writeSpanLink(st *jsoniter.Stream, link *otlptrace.Span_Link) error {
 	if link == nil {
-
+		st.WriteNil()
 		return nil
 	}
+
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("traceId")
+	st.WriteString(hex.EncodeToString(link.TraceId[:]))
+	st.WriteMore()
+
+	st.WriteObjectField("spanId")
+	st.WriteString(hex.EncodeToString(link.SpanId[:]))
+	st.WriteMore()
+
+	st.WriteObjectField("traceState")
+	st.WriteString(link.GetTraceState())
+	st.WriteMore()
+
+	st.WriteObjectField("attributes")
+	st.WriteArrayStart()
+	for i, kv := range link.GetAttributes() {
+		if err := writeKeyValue(st, kv); err != nil {
+			return err
+		}
+		if i < len(link.GetAttributes())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedAttributesCount")
+	st.WriteUint32(link.GetDroppedAttributesCount())
+	return nil
 }
 
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
