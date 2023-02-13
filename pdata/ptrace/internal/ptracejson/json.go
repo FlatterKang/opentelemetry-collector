@@ -156,6 +156,82 @@ func writeSpan(st *jsoniter.Stream, span *otlptrace.Span) error {
 	st.WriteString(span.GetTraceState())
 	st.WriteMore()
 
+	st.WriteObjectField("parentSpanId")
+	st.WriteString(hex.EncodeToString(span.ParentSpanId[:]))
+	st.WriteMore()
+
+	st.WriteObjectField("name")
+	st.WriteString(span.GetName())
+	st.WriteMore()
+
+	st.WriteObjectField("kind")
+	st.WriteInt32(int32(span.GetKind()))
+	st.WriteMore()
+
+	st.WriteObjectField("startTimeUnixNano")
+	st.WriteUint64(span.GetStartTimeUnixNano())
+	st.WriteMore()
+
+	st.WriteObjectField("endTimeUnixNano")
+	st.WriteUint64(span.GetEndTimeUnixNano())
+	st.WriteMore()
+
+	st.WriteObjectField("attributes")
+	st.WriteArrayStart()
+	for i, value := range span.GetAttributes() {
+		if err := writeKeyValue(st, value); err != nil {
+			return err
+		}
+		if i < len(span.GetAttributes())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedAttributesCount")
+	st.WriteUint32(span.GetDroppedAttributesCount())
+	st.WriteMore()
+
+	st.WriteObjectField("events")
+	st.WriteArrayStart()
+	for i, event := range span.GetEvents() {
+		if err := writeSpanEvent(st, event); err != nil {
+			return err
+		}
+		if i < len(span.GetEvents())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedEventsCount")
+	st.WriteUint32(span.GetDroppedEventsCount())
+	st.WriteMore()
+
+	st.WriteObjectField("links")
+	st.WriteArrayStart()
+	for i, link := range span.GetLinks() {
+		if err := writeSpanLink(st, link); err != nil {
+			return err
+		}
+		if i < len(span.GetLinks())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedLinksCount")
+	st.WriteUint32(span.GetDroppedLinksCount())
+	st.WriteMore()
+
+	st.WriteObjectField("status")
+	if err := writeStatus(st, span.GetStatus()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func writeResource(st *jsoniter.Stream, resource otlpresource.Resource) error {
@@ -172,7 +248,6 @@ func writeResource(st *jsoniter.Stream, resource otlpresource.Resource) error {
 			st.WriteMore()
 		}
 	}
-
 	st.WriteArrayEnd()
 	st.WriteMore()
 
@@ -280,6 +355,18 @@ func writeKeyValueList(st *jsoniter.Stream, kvlistValue *otlpcommon.KeyValueList
 	}
 	st.WriteArrayEnd()
 	return nil
+}
+
+func writeSpanEvent(st *jsoniter.Stream, event *otlptrace.Span_Event) error {
+	panic("implement me")
+}
+
+func writeStatus(st *jsoniter.Stream, status otlptrace.Status) error {
+	panic("implement me")
+}
+
+func writeSpanLink(st *jsoniter.Stream, link *otlptrace.Span_Link) error {
+	panic("implement me")
 }
 
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
