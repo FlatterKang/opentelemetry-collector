@@ -33,6 +33,74 @@ var JSONMarshaler = &jsonpb.Marshaler{
 	OrigName: false,
 }
 
+func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
+	st := jsoniter.ConfigCompatibleWithStandardLibrary.BorrowStream(nil)
+	defer jsoniter.ConfigCompatibleWithStandardLibrary.ReturnStream(st)
+	st.WriteObjectStart()
+
+	st.WriteObjectField("resourceSpans")
+	st.WriteArrayStart()
+	for i, spans := range traceData.GetResourceSpans() {
+		if err := writeResourceSpans(st, spans); err != nil {
+			return nil, err
+		}
+		if i < len(traceData.GetResourceSpans())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+
+	st.WriteObjectEnd()
+	return st.Buffer(), nil
+}
+
+func MarshalExportTraceServiceRequest(request *otlpcollectortrace.ExportTraceServiceRequest) ([]byte, error) {
+
+}
+
+func MarshalExportTraceServiceResponse(request *otlpcollectortrace.ExportTraceServiceResponse) ([]byte, error) {
+
+}
+
+func writeResourceSpans(st *jsoniter.Stream, resourceSpans *otlptrace.ResourceSpans) error {
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("deprecatedScopeSpans")
+	st.WriteArrayStart()
+	for i, spans := range resourceSpans.GetDeprecatedScopeSpans() {
+		if err := writeScopeSpans(st, spans); err != nil {
+			return err
+		}
+		if i < len(resourceSpans.GetDeprecatedScopeSpans())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("scopeSpans")
+	st.WriteArrayStart()
+	for i, spans := range resourceSpans.GetScopeSpans() {
+		if err := writeScopeSpans(st, spans); err != nil {
+			return err
+		}
+		if i < len(resourceSpans.GetScopeSpans())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("schemaUrl")
+	st.WriteString(resourceSpans.GetSchemaUrl())
+}
+
+func writeScopeSpans(st *jsoniter.Stream, scopeSpans *otlptrace.ScopeSpans) error {
+	resourceSpans.GetDeprecatedScopeSpans()
+
+}
+
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
 	iter := jsoniter.ConfigFastest.BorrowIterator(buf)
 	defer jsoniter.ConfigFastest.ReturnIterator(iter)
