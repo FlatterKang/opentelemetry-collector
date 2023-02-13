@@ -144,8 +144,7 @@ func writeKeyValue(st *jsoniter.Stream, kv otlpcommon.KeyValue) error {
 	st.WriteMore()
 
 	st.WriteObjectField("value")
-	value := kv.GetValue()
-
+	return writeAnyValue(st, kv.GetValue())
 }
 
 func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
@@ -154,7 +153,10 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		return nil
 	}
 
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_StringValue); ok {
+		st.WriteObjectField("stringValue")
 		if v != nil {
 			st.WriteString(v.StringValue)
 			return nil
@@ -163,6 +165,7 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		return nil
 	}
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_BoolValue); ok {
+		st.WriteObjectField("boolValue")
 		if v != nil {
 			st.WriteBool(v.BoolValue)
 			return nil
@@ -171,6 +174,7 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		return nil
 	}
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_IntValue); ok {
+		st.WriteObjectField("intValue")
 		if v != nil {
 			st.WriteInt64(v.IntValue)
 			return nil
@@ -179,6 +183,7 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		return nil
 	}
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_DoubleValue); ok {
+		st.WriteObjectField("doubleValue")
 		if v != nil {
 			st.WriteFloat64(v.DoubleValue)
 			return nil
@@ -186,26 +191,24 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		st.WriteFloat64(0)
 		return nil
 	}
-
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_ArrayValue); ok {
+		st.WriteObjectField("arrayValue")
 		if v != nil {
-			st.WriteFloat64(v.ArrayValue)
-			return nil
+			return writeArrayValue(st, v.ArrayValue)
 		}
-		st.WriteFloat64(0)
+		st.WriteNil()
 		return nil
 	}
-
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_KvlistValue); ok {
+		st.WriteObjectField("kvlistValue")
 		if v != nil {
-			st.WriteFloat64(v.KvlistValue)
-			return nil
+			return writeKeyValueList(st, v.KvlistValue)
 		}
-		st.WriteFloat64(0)
+		st.WriteNil()
 		return nil
 	}
-
 	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_BytesValue); ok {
+		st.WriteObjectField("bytesValue")
 		if v != nil {
 			st.WriteString(base64.StdEncoding.EncodeToString(v.BytesValue))
 			return nil
@@ -214,6 +217,50 @@ func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
 		return nil
 	}
 	return fmt.Errorf("invalid value type: %v", reflect.TypeOf((&value).GetValue()))
+}
+
+func writeArrayValue(st *jsoniter.Stream, arrayValue *otlpcommon.ArrayValue) error {
+	if arrayValue == nil {
+		st.WriteNil()
+		return nil
+	}
+
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+	st.WriteObjectField("values")
+	st.WriteArrayStart()
+	for i, value := range arrayValue.GetValues() {
+		if err := writeAnyValue(st, value); err != nil {
+			return err
+		}
+		if i < len(arrayValue.GetValues())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	return nil
+}
+
+func writeKeyValueList(st *jsoniter.Stream, kvlistValue *otlpcommon.KeyValueList) error {
+	if kvlistValue == nil {
+		st.WriteNil()
+		return nil
+	}
+
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+	st.WriteObjectField("values")
+	st.WriteArrayStart()
+	for i, value := range kvlistValue.GetValues() {
+		if err := writeKeyValue(st, value); err != nil {
+			return err
+		}
+		if i < len(kvlistValue.GetValues())-1 {
+			st.WriteMore()
+		}
+	}
+	st.WriteArrayEnd()
+	return nil
 }
 
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
