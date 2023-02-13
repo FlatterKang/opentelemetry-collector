@@ -16,6 +16,7 @@ package ptracejson // import "go.opentelemetry.io/collector/pdata/ptrace/interna
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 
@@ -113,7 +114,48 @@ func writeScopeSpans(st *jsoniter.Stream, scopeSpans *otlptrace.ScopeSpans) erro
 		return nil
 	}
 
-	panic("implement me")
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	scopeSpans.GetScope()
+
+	scopeSpans.GetSpans()
+	st.WriteObjectField("spans")
+	for i, span := range scopeSpans.GetSpans() {
+		if err := writeSpan(st, span); err != nil {
+			return err
+		}
+		if i < len(scopeSpans.GetSpans())-1 {
+			st.WriteMore()
+		}
+	}
+
+	st.WriteObjectField("schemaUrl")
+	scopeSpans.GetSchemaUrl()
+	return nil
+}
+
+func writeSpan(st *jsoniter.Stream, span *otlptrace.Span) error {
+	if span == nil {
+		st.WriteNil()
+		return nil
+	}
+
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("traceId")
+	st.WriteString(hex.EncodeToString(span.TraceId[:]))
+	st.WriteMore()
+
+	st.WriteObjectField("spanId")
+	st.WriteString(hex.EncodeToString(span.SpanId[:]))
+	st.WriteMore()
+
+	st.WriteObjectField("traceState")
+	st.WriteString(span.GetTraceState())
+	st.WriteMore()
+
 }
 
 func writeResource(st *jsoniter.Stream, resource otlpresource.Resource) error {
