@@ -15,12 +15,16 @@
 package ptracejson // import "go.opentelemetry.io/collector/pdata/ptrace/internal/ptracejson"
 
 import (
+	"encoding/base64"
 	"fmt"
+	"reflect"
 
 	"github.com/gogo/protobuf/jsonpb"
 	jsoniter "github.com/json-iterator/go"
 
 	otlpcollectortrace "go.opentelemetry.io/collector/pdata/internal/data/protogen/collector/trace/v1"
+	otlpcommon "go.opentelemetry.io/collector/pdata/internal/data/protogen/common/v1"
+	otlpresource "go.opentelemetry.io/collector/pdata/internal/data/protogen/resource/v1"
 	otlptrace "go.opentelemetry.io/collector/pdata/internal/data/protogen/trace/v1"
 	"go.opentelemetry.io/collector/pdata/internal/json"
 	"go.opentelemetry.io/collector/pdata/internal/otlp"
@@ -55,11 +59,11 @@ func MarshalTraceData(traceData *otlptrace.TracesData) ([]byte, error) {
 }
 
 func MarshalExportTraceServiceRequest(request *otlpcollectortrace.ExportTraceServiceRequest) ([]byte, error) {
-
+	panic("implement me")
 }
 
 func MarshalExportTraceServiceResponse(request *otlpcollectortrace.ExportTraceServiceResponse) ([]byte, error) {
-
+	panic("implement me")
 }
 
 func writeResourceSpans(st *jsoniter.Stream, resourceSpans *otlptrace.ResourceSpans) error {
@@ -79,6 +83,12 @@ func writeResourceSpans(st *jsoniter.Stream, resourceSpans *otlptrace.ResourceSp
 	st.WriteArrayEnd()
 	st.WriteMore()
 
+	st.WriteObjectField("resource")
+	if err := writeResource(st, resourceSpans.GetResource()); err != nil {
+		return err
+	}
+	st.WriteMore()
+
 	st.WriteObjectField("scopeSpans")
 	st.WriteArrayStart()
 	for i, spans := range resourceSpans.GetScopeSpans() {
@@ -94,11 +104,116 @@ func writeResourceSpans(st *jsoniter.Stream, resourceSpans *otlptrace.ResourceSp
 
 	st.WriteObjectField("schemaUrl")
 	st.WriteString(resourceSpans.GetSchemaUrl())
+	return nil
 }
 
 func writeScopeSpans(st *jsoniter.Stream, scopeSpans *otlptrace.ScopeSpans) error {
-	resourceSpans.GetDeprecatedScopeSpans()
+	// TODO
+	panic("implement me")
+}
 
+func writeResource(st *jsoniter.Stream, resource otlpresource.Resource) error {
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("attributes")
+	st.WriteArrayStart()
+	for i, kv := range resource.GetAttributes() {
+		if err := writeKeyValue(st, kv); err != nil {
+			return err
+		}
+		if i < len(resource.GetAttributes())-1 {
+			st.WriteMore()
+		}
+	}
+
+	st.WriteArrayEnd()
+	st.WriteMore()
+
+	st.WriteObjectField("droppedAttributesCount")
+	st.WriteUint32(resource.GetDroppedAttributesCount())
+	return nil
+}
+
+func writeKeyValue(st *jsoniter.Stream, kv otlpcommon.KeyValue) error {
+	st.WriteObjectStart()
+	defer st.WriteObjectEnd()
+
+	st.WriteObjectField("key")
+	st.WriteString(kv.GetKey())
+	st.WriteMore()
+
+	st.WriteObjectField("value")
+	value := kv.GetValue()
+
+}
+
+func writeAnyValue(st *jsoniter.Stream, value otlpcommon.AnyValue) error {
+	if (&value).GetValue() == nil {
+		st.WriteNil()
+		return nil
+	}
+
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_StringValue); ok {
+		if v != nil {
+			st.WriteString(v.StringValue)
+			return nil
+		}
+		st.WriteString("")
+		return nil
+	}
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_BoolValue); ok {
+		if v != nil {
+			st.WriteBool(v.BoolValue)
+			return nil
+		}
+		st.WriteFalse()
+		return nil
+	}
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_IntValue); ok {
+		if v != nil {
+			st.WriteInt64(v.IntValue)
+			return nil
+		}
+		st.WriteInt64(0)
+		return nil
+	}
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_DoubleValue); ok {
+		if v != nil {
+			st.WriteFloat64(v.DoubleValue)
+			return nil
+		}
+		st.WriteFloat64(0)
+		return nil
+	}
+
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_ArrayValue); ok {
+		if v != nil {
+			st.WriteFloat64(v.ArrayValue)
+			return nil
+		}
+		st.WriteFloat64(0)
+		return nil
+	}
+
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_KvlistValue); ok {
+		if v != nil {
+			st.WriteFloat64(v.KvlistValue)
+			return nil
+		}
+		st.WriteFloat64(0)
+		return nil
+	}
+
+	if v, ok := (&value).GetValue().(*otlpcommon.AnyValue_BytesValue); ok {
+		if v != nil {
+			st.WriteString(base64.StdEncoding.EncodeToString(v.BytesValue))
+			return nil
+		}
+		st.WriteString(base64.StdEncoding.EncodeToString([]byte{}))
+		return nil
+	}
+	return fmt.Errorf("invalid value type: %v", reflect.TypeOf((&value).GetValue()))
 }
 
 func UnmarshalTraceData(buf []byte, dest *otlptrace.TracesData) error {
